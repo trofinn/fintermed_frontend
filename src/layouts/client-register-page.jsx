@@ -4,6 +4,8 @@ import * as React from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button.jsx";
 import {
@@ -21,48 +23,41 @@ import {
     FormMessage,
 } from "@/components/ui/form.jsx";
 import { Input } from "@/components/ui/input.jsx";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select.jsx";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.jsx";
-import { Command, CommandInput, CommandList, CommandItem } from "@/components/ui/command.jsx";
-import { Eye, EyeOff } from "lucide-react";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover.jsx";
+import {
+    Command,
+    CommandInput,
+    CommandList,
+    CommandItem,
+} from "@/components/ui/command.jsx";
 
 import { useToast } from "@/hooks/use-toast.js";
-import { DeveloperRegister } from "@/api-calls/developer-register.js";
-import {useNavigate} from "react-router-dom";
+import {
+    ValidateClientInvitation,
+    RegisterClient,
+} from "@/api-calls/client-routes.js";
 
-// ---------- SCHEMA ZOD CU CONFIRMĂRI ----------
+// ---------- SCHEMA ----------
 const formSchema = z
     .object({
-        tipEntitate: z.string().min(1, { message: "Tipul entității juridice este obligatoriu" }),
-        numarInregistrare: z.string().min(1, { message: "Numărul de înregistrare este obligatoriu" }),
-        tara: z.string().min(1, { message: "Țara entității este obligatorie" }),
-        denumireCompanie: z.string().min(1, { message: "Denumirea companiei este obligatorie" }),
-        dataInregistrarii: z.string().min(1, { message: "Data înregistrării este obligatorie" }),
-
-        prenume: z.string().min(1, { message: "Prenumele reprezentantului legal este obligatoriu" }),
-        nume: z.string().min(1, { message: "Numele reprezentantului legal este obligatoriu" }),
-        dataNasterii: z.string().min(1, { message: "Data nașterii este obligatorie" }),
-        taraReprezentant: z.string().min(1, { message: "Țara de origine a reprezentantului este obligatorie" }),
-        nationalitate: z.string().min(1, { message: "Naționalitatea reprezentantului este obligatorie" }),
+        nume: z.string().min(1, { message: "Numele este obligatoriu" }),
+        prenume: z.string().min(1, { message: "Prenumele este obligatoriu" }),
+        email: z.string().email({ message: "Introduceți un e-mail valid" }),
         telefon: z
             .string()
             .regex(/^\+?\d{10,15}$/, { message: "Introduceți un număr de telefon valid" }),
-        taraRezidenta: z.string().min(1, { message: "Țara de reședință a reprezentantului este obligatorie" }),
-
-        email: z.string().email({ message: "Introduceți un e-mail valid" }),
-        confirmEmail: z.string().email({ message: "Introduceți un e-mail valid" }),
-
+        dataNasterii: z.string().min(1, { message: "Data nașterii este obligatorie" }),
+        orasNastere: z.string().min(1, { message: "Orașul nașterii este obligatoriu" }),
+        taraNastere: z.string().min(1, { message: "Țara nașterii este obligatorie" }),
+        nationalitate: z.string().min(1, { message: "Naționalitatea este obligatorie" }),
         password: z.string().min(8, { message: "Parola trebuie să aibă cel puțin 8 caractere" }),
         confirmPassword: z.string().min(8, { message: "Parola trebuie să aibă cel puțin 8 caractere" }),
     })
     .superRefine((data, ctx) => {
-        if (data.email !== data.confirmEmail) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ["confirmEmail"],
-                message: "Adresele de email nu coincid",
-            });
-        }
         if (data.password !== data.confirmPassword) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
@@ -72,20 +67,24 @@ const formSchema = z
         }
     });
 
-// ---------- DATE DEMO ȚĂRI / NAȚIONALITĂȚI ----------
+// ---------- DATE DEMO ----------
 const countries = [
     { code: "RO", name: "România" },
     { code: "US", name: "Statele Unite" },
     { code: "DE", name: "Germania" },
+    { code: "FR", name: "Franța" },
+    { code: "IT", name: "Italia" },
 ];
 
 const nationalities = [
     { code: "RO", name: "Română" },
     { code: "US", name: "Americană" },
     { code: "DE", name: "Germană" },
+    { code: "FR", name: "Franceză" },
+    { code: "IT", name: "Italiană" },
 ];
 
-// ---------- COMPONENTĂ SELECT ȚARĂ / NAȚIONALITATE ----------
+// ---------- COMPONENTĂ SELECT ----------
 function CountrySelect({ control, name, placeholder, options }) {
     const [open, setOpen] = React.useState(false);
     const [inputValue, setInputValue] = React.useState("");
@@ -147,96 +146,12 @@ function CountrySelect({ control, name, placeholder, options }) {
     );
 }
 
-// ---------- PAS 1: ENTITATE JURIDICĂ ----------
-function EntityStep({ form }) {
+// ---------- PAS 1 ----------
+function PersonalStep({ form }) {
     return (
         <>
             <h2 className="lg:col-span-2 font-semibold mb-1">
-                Informații Entitate Juridică
-            </h2>
-
-            <FormField
-                control={form.control}
-                name="tipEntitate"
-                render={({ field }) => (
-                    <FormItem className="w-full">
-                        <FormControl>
-                            <Select {...field} onValueChange={field.onChange}>
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Selectați tipul entității" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="SRL">SRL</SelectItem>
-                                    <SelectItem value="SA">SA</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-
-            <FormField
-                control={form.control}
-                name="numarInregistrare"
-                render={({ field }) => (
-                    <FormItem className="w-full">
-                        <FormControl>
-                            <Input
-                                {...field}
-                                placeholder="Numărul de înregistrare al companiei"
-                            />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-
-            <CountrySelect
-                control={form.control}
-                name="tara"
-                placeholder="Țara în care este înregistrată compania"
-                options={countries}
-            />
-
-            <FormField
-                control={form.control}
-                name="denumireCompanie"
-                render={({ field }) => (
-                    <FormItem className="w-full">
-                        <FormControl>
-                            <Input
-                                {...field}
-                                placeholder="Denumirea completă a companiei"
-                            />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-
-            <FormField
-                control={form.control}
-                name="dataInregistrarii"
-                render={({ field }) => (
-                    <FormItem className="w-full">
-                        <FormControl>
-                            <Input {...field} type="date" />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-        </>
-    );
-}
-
-// ---------- PAS 2: REPREZENTANT LEGAL ----------
-function RepresentativeStep({ form }) {
-    return (
-        <>
-            <h2 className="lg:col-span-2 font-semibold mb-1">
-                Informații Reprezentant Legal
+                Informații personale
             </h2>
 
             <FormField
@@ -245,10 +160,7 @@ function RepresentativeStep({ form }) {
                 render={({ field }) => (
                     <FormItem className="w-full">
                         <FormControl>
-                            <Input
-                                {...field}
-                                placeholder="Prenumele reprezentantului legal"
-                            />
+                            <Input {...field} placeholder="Prenume" />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -261,10 +173,7 @@ function RepresentativeStep({ form }) {
                 render={({ field }) => (
                     <FormItem className="w-full">
                         <FormControl>
-                            <Input
-                                {...field}
-                                placeholder="Numele reprezentantului legal"
-                            />
+                            <Input {...field} placeholder="Nume" />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -284,30 +193,13 @@ function RepresentativeStep({ form }) {
                 )}
             />
 
-            <CountrySelect
-                control={form.control}
-                name="taraReprezentant"
-                placeholder="Țara de origine a reprezentantului"
-                options={countries}
-            />
-
-            <CountrySelect
-                control={form.control}
-                name="nationalitate"
-                placeholder="Naționalitatea reprezentantului"
-                options={nationalities}
-            />
-
             <FormField
                 control={form.control}
-                name="telefon"
+                name="orasNastere"
                 render={({ field }) => (
                     <FormItem className="w-full">
                         <FormControl>
-                            <Input
-                                {...field}
-                                placeholder="Numărul de telefon al reprezentantului"
-                            />
+                            <Input {...field} placeholder="Orașul nașterii" />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -316,15 +208,35 @@ function RepresentativeStep({ form }) {
 
             <CountrySelect
                 control={form.control}
-                name="taraRezidenta"
-                placeholder="Țara de reședință a reprezentantului"
+                name="taraNastere"
+                placeholder="Țara nașterii"
                 options={countries}
+            />
+
+            <CountrySelect
+                control={form.control}
+                name="nationalitate"
+                placeholder="Naționalitate"
+                options={nationalities}
+            />
+
+            <FormField
+                control={form.control}
+                name="telefon"
+                render={({ field }) => (
+                    <FormItem className="w-full lg:col-span-2">
+                        <FormControl>
+                            <Input {...field} placeholder="Număr de telefon" />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
             />
         </>
     );
 }
 
-// ---------- PAS 3: DATE DE CONECTARE ----------
+// ---------- PAS 2 ----------
 function CredentialsStep({
                              form,
                              showPassword,
@@ -342,29 +254,14 @@ function CredentialsStep({
                 control={form.control}
                 name="email"
                 render={({ field }) => (
-                    <FormItem className="w-full">
+                    <FormItem className="w-full lg:col-span-2">
                         <FormControl>
                             <Input
                                 {...field}
                                 type="email"
-                                placeholder="Emailul reprezentantului"
-                            />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )}
-            />
-
-            <FormField
-                control={form.control}
-                name="confirmEmail"
-                render={({ field }) => (
-                    <FormItem className="w-full">
-                        <FormControl>
-                            <Input
-                                {...field}
-                                type="email"
-                                placeholder="Confirmați adresa de email"
+                                placeholder="Email"
+                                disabled
+                                className="bg-muted"
                             />
                         </FormControl>
                         <FormMessage />
@@ -382,7 +279,7 @@ function CredentialsStep({
                                 <Input
                                     {...field}
                                     type={showPassword ? "text" : "password"}
-                                    placeholder="Parola contului pentru reprezentant"
+                                    placeholder="Parola contului"
                                     className="pr-10"
                                 />
                                 <button
@@ -413,7 +310,7 @@ function CredentialsStep({
                                 <Input
                                     {...field}
                                     type={showConfirmPassword ? "text" : "password"}
-                                    placeholder="Confirmați parola"
+                                    placeholder="Confirmă parola"
                                     className="pr-10"
                                 />
                                 <button
@@ -437,71 +334,86 @@ function CredentialsStep({
     );
 }
 
-// ---------- COMPONENTA PRINCIPALĂ CU WIZARD 3 PAȘI ----------
-export function DeveloperRegistrationForm() {
-    const navigate = useNavigate()
+// ---------- COMPONENTA PRINCIPALĂ ----------
+export function ClientRegistrationForm() {
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const token = searchParams.get("token");
+
     const { toast } = useToast();
+
     const [step, setStep] = React.useState(1);
+    const [isValidatingToken, setIsValidatingToken] = React.useState(true);
+    const [invitationError, setInvitationError] = React.useState("");
+    const [invitationData, setInvitationData] = React.useState(null);
+
     const [showPassword, setShowPassword] = React.useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
 
     const form = useForm({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            tipEntitate: "",
-            numarInregistrare: "",
-            tara: "",
-            denumireCompanie: "",
-            dataInregistrarii: "",
-            prenume: "",
             nume: "",
-            dataNasterii: "",
-            taraReprezentant: "",
-            nationalitate: "",
-            telefon: "",
-            taraRezidenta: "",
+            prenume: "",
             email: "",
-            confirmEmail: "",
+            telefon: "",
+            dataNasterii: "",
+            orasNastere: "",
+            taraNastere: "",
+            nationalitate: "",
             password: "",
             confirmPassword: "",
         },
     });
 
-    // câmpurile relevante pentru fiecare pas (pentru validare parțială)
+    React.useEffect(() => {
+        async function validateInvitation() {
+            if (!token) {
+                setInvitationError("Link invalid. Tokenul lipsește.");
+                setIsValidatingToken(false);
+                return;
+            }
+
+            const response = await ValidateClientInvitation(token);
+
+            if (response.success) {
+                setInvitationData(response.data);
+                form.setValue("email", response.data.email || "");
+            } else {
+                setInvitationError(response.message || "Invitația nu este validă.");
+            }
+
+            setIsValidatingToken(false);
+        }
+
+        validateInvitation();
+    }, [token, form]);
+
     const step1Fields = [
-        "tipEntitate",
-        "numarInregistrare",
-        "tara",
-        "denumireCompanie",
-        "dataInregistrarii",
+        "prenume",
+        "nume",
+        "telefon",
+        "dataNasterii",
+        "orasNastere",
+        "taraNastere",
+        "nationalitate",
     ];
 
     const step2Fields = [
-        "prenume",
-        "nume",
-        "dataNasterii",
-        "taraReprezentant",
-        "nationalitate",
-        "telefon",
-        "taraRezidenta",
-    ];
-
-    const step3Fields = [
         "email",
-        "confirmEmail",
         "password",
         "confirmPassword",
     ];
 
     const handleNext = async () => {
-        let fieldsToValidate = [];
-        if (step === 1) fieldsToValidate = step1Fields;
-        if (step === 2) fieldsToValidate = step2Fields;
-
+        const fieldsToValidate = step === 1 ? step1Fields : [];
         const valid = await form.trigger(fieldsToValidate);
         if (!valid) return;
-
         setStep((prev) => prev + 1);
+    };
+
+    const handleBack = () => {
+        setStep((prev) => prev - 1);
     };
 
     async function hashPassword(password) {
@@ -509,40 +421,35 @@ export function DeveloperRegistrationForm() {
         const data = encoder.encode(password);
         const hashBuffer = await crypto.subtle.digest("SHA-256", data);
         const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray
-            .map((b) => b.toString(16).padStart(2, "0"))
-            .join("");
-        return hashHex; // string hex
+        return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
     }
-
-    const handleBack = () => {
-        setStep((prev) => prev - 1);
-    };
 
     const onSubmit = async (values) => {
         try {
-            // 1) Hash parola pe frontend
             const hashedPassword = await hashPassword(values.password);
 
-            // 2) Construim payload-ul pentru backend
             const payload = {
-                ...values,
+                token,
+                nume: values.nume,
+                prenume: values.prenume,
+                telefon: values.telefon,
+                dataNasterii: values.dataNasterii,
+                orasNastere: values.orasNastere,
+                taraNastere: values.taraNastere,
+                nationalitate: values.nationalitate,
                 password: hashedPassword,
             };
 
-            // scoatem câmpurile de confirmare – backend nu are nevoie de ele
-            delete payload.confirmPassword;
-            delete payload.confirmEmail;
-
-            const response = await DeveloperRegister(payload);
+            const response = await RegisterClient(payload);
 
             if (response.success) {
                 toast({
                     title: "Înregistrare realizată",
-                    description: "Procesul de înregistrare a fost finalizat cu succes.",
+                    description: "Contul de client a fost creat cu succes.",
                 });
+
                 form.reset();
-                navigate("/login");
+                navigate("/client-login");
             } else {
                 toast({
                     title: "Eroare la înregistrare",
@@ -559,26 +466,63 @@ export function DeveloperRegistrationForm() {
         }
     };
 
+    if (isValidatingToken) {
+        return (
+            <div className="w-full flex justify-center px-4">
+                <Card className="w-full max-w-2xl mx-auto p-6 lg:p-8">
+                    <CardContent className="flex items-center justify-center py-10">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Se validează invitația...
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    if (invitationError) {
+        return (
+            <div className="w-full flex justify-center px-4">
+                <Card className="w-full max-w-2xl mx-auto p-6 lg:p-8">
+                    <CardHeader>
+                        <CardTitle className="text-lg sm:text-xl text-center">
+                            Invitație invalidă
+                        </CardTitle>
+                        <CardDescription className="text-sm text-center">
+                            Acest link nu mai poate fi folosit.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="text-center text-sm text-destructive">
+                        {invitationError}
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="w-full flex justify-center px-4">
             <Card className="w-full max-w-3xl mx-auto p-6 lg:p-8">
                 <CardHeader>
                     <CardTitle className="text-lg sm:text-xl text-center">
-                        Înregistrare Dezvoltator
+                        Înregistrare Client
                     </CardTitle>
                     <CardDescription className="text-sm text-center">
-                        Pasul {step} din 3
+                        Pasul {step} din 2
+                        {invitationData?.unitId ? " • Invitație validată" : ""}
                     </CardDescription>
                 </CardHeader>
+
                 <CardContent>
                     <Form {...form}>
                         <form
                             onSubmit={form.handleSubmit(onSubmit)}
                             className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full"
                         >
-                            {step === 1 && <EntityStep form={form} />}
-                            {step === 2 && <RepresentativeStep form={form} />}
-                            {step === 3 && (
+                            {step === 1 && <PersonalStep form={form} />}
+
+                            {step === 2 && (
                                 <CredentialsStep
                                     form={form}
                                     showPassword={showPassword}
@@ -600,7 +544,7 @@ export function DeveloperRegistrationForm() {
                                     </Button>
                                 )}
 
-                                {step < 3 && (
+                                {step < 2 && (
                                     <Button
                                         type="button"
                                         onClick={handleNext}
@@ -610,7 +554,7 @@ export function DeveloperRegistrationForm() {
                                     </Button>
                                 )}
 
-                                {step === 3 && (
+                                {step === 2 && (
                                     <Button
                                         type="submit"
                                         className="w-full lg:w-auto ml-auto"

@@ -6,7 +6,8 @@ import {DeveloperRegistrationForm} from "@/layouts/developer-register-page.jsx";
 import {DeveloperLoginPage} from "@/layouts/developer-login-page.jsx";
 import {ProtectedRoute} from "@/layouts/protected-route.jsx";
 import {DeveloperDashboard} from "@/layouts/developer-dashboard/developer-dashboard.jsx";
-import {ProjectUnitiesDashboard} from "@/layouts/projet-dashboard/project-unities-dashboard.jsx";
+import {ProjectUnitiesDashboard} from "@/layouts/project-dashboard/project-unities-dashboard.jsx";
+import {ClientRegistrationForm} from "@/layouts/client-register-page.jsx";
 
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
                     <Route path="/login" element={<DeveloperLoginPage/>}/>
                     <Route path="/dashboard" element={(<ProtectedRoute><DeveloperDashboard/></ProtectedRoute>)}/>
                     <Route path="/projects/:projectId" element={(<ProtectedRoute><ProjectUnitiesDashboard/></ProtectedRoute>)}/>
+                    <Route path="/client-register" element={<ClientRegistrationForm />} />
                 </Routes>
             </BrowserRouter>
             <Toaster/>

@@ -1,4 +1,4 @@
-// src/api-calls/developer-register.js
+
 import axiosInstance from "@/api-calls/index.js";
 
 

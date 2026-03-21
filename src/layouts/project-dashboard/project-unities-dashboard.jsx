@@ -15,7 +15,8 @@ import { Separator } from "@/components/ui/separator.jsx";
 import { EmptyUnityList } from "@/layouts/developer-dashboard/components/empty-unity-list.jsx";
 import { GetUnitiesByProjectId } from "@/api-calls/unity-routes.js";
 import { SetUnitiesForProject } from "@/redux/projectSlice.js";
-import {ProjectTimeline} from "@/layouts/projet-dashboard/project-timeline.jsx";
+import {ProjectTimeline} from "@/layouts/project-dashboard/project-timeline.jsx";
+import {UnitsTable} from "@/layouts/project-dashboard/units-table.jsx";
 // import { UnitiesTable } from "@/layouts/developer-dashboard/components/unities-table.jsx";
 
 export function ProjectUnitiesDashboard() {
@@ -97,7 +98,7 @@ export function ProjectUnitiesDashboard() {
                     {unities.length === 0 ? (
                         <EmptyUnityList />
                     ) : (
-                        <p>sal</p>
+                        <UnitsTable data={unities} projectId={projectId} projectName={projectName} />
                         // <UnitiesTable data={unities} />
                     )}
                 </div>
